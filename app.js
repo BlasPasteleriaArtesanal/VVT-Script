@@ -47,22 +47,22 @@ function getScriptContent(values) {
   const fechaFormatted = formatFecha(values.fechaNacimiento);
 
   return `// ==UserScript==
-// @name         Auto-Rellenado Consulado Francia (VVT)
-// @namespace    https://github.com/vvt-script
-// @version      1.2.0
-// @description  Autocompleta automáticamente los formularios de solicitud de cita y visados en el Consulado de Francia.
-// @author       VVT Community
-// @match        https://*.consulfrance.org/*
-// @match        https://*.france-visas.gouv.fr/*
-// @match        https://*.vfs-global.com/*
-// @match        https://*.trood.fr/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=france-visas.gouv.fr
+// @name         Auto-completar Turno Consulado Francia
+// @namespace    http://tampermonkey.net/
+// @version      1.2
+// @description  Completa el formulario de turno automáticamente
+// @match        https://consulat.gouv.fr/*
+// @match        https://*.consulat.gouv.fr/*
+// @match        https://*vvt-simulator.vercel.app/*
+// @include      *consulat.gouv.fr*
 // @grant        none
-// ==UserScript==
+// @run-at       document-idle
+// ==/UserScript==
 
 (function() {
     'use strict';
 
+    // === TUS DATOS ===
     const datos = {
         apellido: '${values.apellido}',
         nombre: '${values.nombre}',
@@ -71,40 +71,156 @@ function getScriptContent(values) {
         telefono: '${values.telefono}',
         fechaNacimiento: '${fechaFormatted}'
     };
+    // =================
 
-    console.log('[VVT Script] Autocompletando campos para:', datos.nombre, datos.apellido);
+    function disparar(el, eventos = ['input', 'change', 'blur']) {
+        eventos.forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true })));
+    }
 
-    function fillForm() {
-        const selectors = {
-            apellido: ['input[name*="nom" i]', 'input[name*="lastName" i]', 'input[name*="apellido" i]', '#lastName', '#nom'],
-            nombre: ['input[name*="prenom" i]', 'input[name*="firstName" i]', 'input[name*="nombre" i]', '#firstName', '#prenom'],
-            email: ['input[type="email"]', 'input[name*="email" i]', 'input[name*="courriel" i]', '#email'],
-            codigoPais: ['select[name*="countryCode" i]', 'input[name*="dialCode" i]', '#countryCode', 'input[name*="codigoPais" i]'],
-            telefono: ['input[type="tel"]', 'input[name*="phone" i]', 'input[name*="mobile" i]', 'input[name*="telefono" i]', '#phone'],
-            fechaNacimiento: ['input[type="date"]', 'input[name*="birth" i]', 'input[name*="dob" i]', '#birthDate']
-        };
+    function setValor(el, valor) {
+        if (!el) return false;
+        // Para inputs controlados por frameworks (Vue/React), seteamos así:
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+                    || Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set
+                    || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+        if (setter) setter.call(el, valor);
+        else el.value = valor;
+        disparar(el);
+        return true;
+    }
 
-        for (const [key, value] of Object.entries(datos)) {
-            if (!value || !selectors[key]) continue;
-            for (const selector of selectors[key]) {
-                const elements = document.querySelectorAll(selector);
-                elements.forEach(el => {
-                    if (el && !el.disabled && el.value !== value) {
-                        el.value = value;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                        el.dispatchEvent(new Event('blur', { bubbles: true }));
-                        el.style.border = '2px solid #22c55e';
-                        el.style.backgroundColor = '#f0fdf4';
+    function esperarElemento(selector, timeout = 10000) {
+        return new Promise((resolve, reject) => {
+            const existente = document.querySelector(selector);
+            if (existente) return resolve(existente);
+            const inicio = Date.now();
+            const intervalo = setInterval(() => {
+                const el = document.querySelector(selector);
+                if (el) {
+                    clearInterval(intervalo);
+                    resolve(el);
+                } else if (Date.now() - inicio > timeout) {
+                    clearInterval(intervalo);
+                    reject(new Error('Timeout: ' + selector));
+                }
+            }, 50);
+        });
+    }
+
+    function getById(id) { return document.getElementById(id); }
+
+    async function autocompletar() {
+        console.log('⚡ Iniciando autocompletado...');
+        const t0 = performance.now();
+
+        try {
+            // Detectar si estamos en el simulador o en la página real
+            const esSimulador = !!getById('nombre1');
+
+            if (esSimulador) {
+                // === SIMULADOR ===
+                await esperarElemento('#nombre1');
+                setValor(getById('nombre1'), datos.apellido);
+                setValor(getById('nombre2'), datos.nombre);
+                setValor(getById('email1'), datos.email);
+                setValor(getById('email2'), datos.email);
+                setValor(getById('phoneCode'), datos.codigoPais);
+                setValor(getById('telefono'), datos.telefono);
+                setValor(getById('nacimiento'), datos.fechaNacimiento);
+                const slot = document.querySelector('.slot-button:not(.selected)');
+                if (slot) slot.click();
+                const mailSi = document.querySelector('input[name="mailVerif"][value="si"]');
+                if (mailSi) { mailSi.checked = true; disparar(mailSi); }
+                const fv = document.querySelector('input[name="franceVisas"][value="entiendo"]');
+                if (fv) { fv.checked = true; disparar(fv); }
+                setValor(getById('entiendoSelect'), 'entiendo');
+
+            } else {
+                // === PÁGINA REAL DEL CONSULADO ===
+                await esperarElemento('#lastname');
+                setValor(getById('lastname'), datos.apellido);
+                setValor(getById('firstname'), datos.nombre);
+                setValor(getById('email'), datos.email);
+                setValor(getById('email-confirm'), datos.email);
+                setValor(getById('phone-country-selector'), datos.codigoPais);
+                setValor(getById('phone'), datos.telefono);
+                setValor(getById('birthdate'), datos.fechaNacimiento);
+
+                // Turno: primer checkbox de slot disponible
+                const slot = document.querySelector('input[type="checkbox"][id^="slot-"]:not(:checked):not(:disabled)');
+                if (slot) {
+                    slot.checked = true;
+                    slot.click(); // por si el click activa la lógica
+                    disparar(slot);
+                    console.log('✅ Turno seleccionado:', slot.id);
+                } else {
+                    console.warn('⚠️ No hay turnos disponibles');
+                }
+
+                // Selects con id dinámico (terminan en "-service-0")
+                document.querySelectorAll('select[id$="-service-0"]').forEach(sel => {
+                    // Buscamos la opción "Entiendo" o la primera no vacía
+                    const opcion = Array.from(sel.options).find(o =>
+                        /entiendo/i.test(o.textContent) || (o.value && o.value !== '')
+                    );
+                    if (opcion) {
+                        setValor(sel, opcion.value);
+                        console.log('✅ Select completado:', sel.id, '→', opcion.textContent);
                     }
                 });
+
+                // Radios con id dinámico (__BVID__): seleccionamos el PRIMERO de cada grupo
+                const gruposRadio = new Set();
+                document.querySelectorAll('input[type="radio"][id^="__BVID__"]').forEach(r => {
+                    if (!gruposRadio.has(r.name)) {
+                        gruposRadio.add(r.name);
+                        r.checked = true;
+                        r.click();
+                        disparar(r);
+                        console.log('✅ Radio marcado:', r.id, 'grupo:', r.name);
+                    }
+                });
+
+                // Inputs de texto con id dinámico (probable: campo "Entiendo" tipeable)
+                document.querySelectorAll('input[type="text"][id$="-service-0"]').forEach(inp => {
+                    setValor(inp, 'Entiendo');
+                    console.log('✅ Input texto:', inp.id);
+                });
             }
+
+            const t1 = performance.now();
+            console.log(\`✅ Completado en \${(t1-t0).toFixed(0)}ms\`);
+
+            // ⚠️ DESCOMENTAR cuando confirmes que llena bien:
+            // const submit = document.querySelector('button[type="submit"], .submit-btn');
+            // if (submit) submit.click();
+
+        } catch(e) {
+            console.error('❌ Error:', e.message);
         }
     }
 
-    fillForm();
-    window.addEventListener('load', fillForm);
-    setInterval(fillForm, 1000);
+    function agregarBoton() {
+        if (document.getElementById('btn-auto-vvt')) return;
+        const btn = document.createElement('button');
+        btn.id = 'btn-auto-vvt';
+        btn.textContent = '⚡ AUTO-COMPLETAR';
+        btn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#c8102e;color:white;border:none;padding:15px 25px;border-radius:30px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+        btn.onclick = autocompletar;
+        document.body.appendChild(btn);
+    }
+
+    if (document.body) agregarBoton();
+    else document.addEventListener('DOMContentLoaded', agregarBoton);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.code === 'Space') {
+            e.preventDefault();
+            autocompletar();
+        }
+    });
+
+    console.log('🟢 Script cargado en:', window.location.href);
 })();`;
 }
 
