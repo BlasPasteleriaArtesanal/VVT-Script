@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de Script Auto-Consulado Francia (VVT)</title>
+  <meta name="description" content="Generador interactivo de Userscript para autocompletar formularios de turnos y visados en el Consulado de Francia.">
+  
+  <!-- Google Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-glow bg-glow-blue"></div>
+  <div class="bg-glow bg-glow-red"></div>
+
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="flag-badge">
+          <span class="flag-stripe blue"></span>
+          <span class="flag-stripe white"></span>
+          <span class="flag-stripe red"></span>
+        </div>
+        <div>
+          <h1>Auto-Consulado Francia</h1>
+          <p class="subtitle">Generador de Tampermonkey / Violentmonkey Script para VVT</p>
+        </div>
+      </div>
+      <div class="version-tag">v1.2.0</div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="grid-layout">
+      
+      <!-- Panel de Configuración -->
+      <section class="card config-card">
+        <div class="card-header">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Configuración de Datos
+          </h2>
+          <p>Los datos ingresados se insertarán directamente en tu script personalizado.</p>
+        </div>
+
+        <form id="form-config" class="form-grid" onsubmit="event.preventDefault();">
+          <div class="input-group">
+            <label for="inputApellido">Apellido(s)</label>
+            <input type="text" id="inputApellido" placeholder="Ej: PÉREZ" value="PÉREZ">
+          </div>
+
+          <div class="input-group">
+            <label for="inputNombre">Nombre(s)</label>
+            <input type="text" id="inputNombre" placeholder="Ej: JUAN" value="JUAN">
+          </div>
+
+          <div class="input-group">
+            <label for="inputEmail">Correo Electrónico</label>
+            <input type="email" id="inputEmail" placeholder="juan.perez@example.com" value="juan.perez@example.com">
+          </div>
+
+          <div class="input-row">
+            <div class="input-group flex-1">
+              <label for="inputCodigoPais">Cód. País</label>
+              <input type="text" id="inputCodigoPais" placeholder="+54" value="+54">
+            </div>
+
+            <div class="input-group flex-2">
+              <label for="inputTelefono">Teléfono</label>
+              <input type="tel" id="inputTelefono" placeholder="1112345678" value="1112345678">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="inputFechaNacimiento">Fecha de Nacimiento</label>
+            <input type="date" id="inputFechaNacimiento" value="1998-05-15">
+          </div>
+        </form>
+
+        <div class="card-actions">
+          <button type="button" id="btn-reset" class="btn btn-secondary">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            Restablecer Datos
+          </button>
+          
+          <button type="button" id="btn-download" class="btn btn-primary">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Descargar .user.js
+          </button>
+        </div>
+      </section>
+
+      <!-- Panel de Vista Previa del Código -->
+      <section class="card code-card">
+        <div class="card-header header-with-action">
+          <div>
+            <h2>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              Vista Previa del Script
+            </h2>
+            <p>Se actualiza en tiempo real según lo que escribas.</p>
+          </div>
+          <button type="button" id="btn-copy-header" class="btn btn-sm btn-outline">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copiar Código
+          </button>
+        </div>
+
+        <div class="code-container">
+          <pre><code id="code-preview" class="language-javascript"></code></pre>
+        </div>
+
+        <div class="preview-footer">
+          <button type="button" id="btn-copy-custom" class="btn btn-accent">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copiar Script Completo
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Guía de Instalación -->
+    <section class="card guide-card">
+      <h2>Cómo utilizar este script</h2>
+      <div class="steps-grid">
+        <div class="step-item">
+          <span class="step-number">1</span>
+          <h3>Instala una extensión</h3>
+          <p>Descarga <strong>Tampermonkey</strong> o <strong>Violentmonkey</strong> en tu navegador (Chrome, Firefox, Brave, Edge).</p>
+        </div>
+        <div class="step-item">
+          <span class="step-number">2</span>
+          <h3>Copia o Descarga</h3>
+          <p>Usa el botón <strong>Descargar .user.js</strong> o copia el código directamente al portapapeles.</p>
+        </div>
+        <div class="step-item">
+          <span class="step-number">3</span>
+          <h3>Crea un nuevo Script</h3>
+          <p>Abre la extensión en tu navegador, crea un nuevo Userscript y pega el contenido generado.</p>
+        </div>
+        <div class="step-item">
+          <span class="step-number">4</span>
+          <h3>¡Listo para usar!</h3>
+          <p>Ingresa a los sitios de visado/consulado de Francia y los datos se autocompletarán en segundos.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>
